@@ -28,7 +28,7 @@ OUTLIER_THRESHOLD = 1.5  # 1.5x channel average = outlier (adjust as needed)
 VIDEOS_FOR_AVERAGE = 20
 
 # How far back to look for new uploads (in hours)
-LOOKBACK_HOURS = 72
+LOOKBACK_HOURS = 168  # 7 days - extended for niche topics
 
 # Topic filter: only include videos with these keywords in the title (case-insensitive)
 # Set to empty list [] to include all topics
@@ -213,12 +213,12 @@ def find_outliers(channel_name, videos, channel_average, lookback_hours=24):
         hours_since_upload = max((now - video["published_at"]).total_seconds() / 3600, 1)
         views_per_hour = video["views"] / hours_since_upload
         
-        # Add to outliers if above threshold
-        if outlier_score >= OUTLIER_THRESHOLD:
-            # Check topic filter
-            if not matches_topic_filter(video["title"]):
-                continue
-            
+        # Check topic filter - if keywords set, only include matching videos
+        if not matches_topic_filter(video["title"]):
+            continue
+        
+        # Add all matching videos (no threshold when using topic filter)
+        if TOPIC_KEYWORDS or outlier_score >= OUTLIER_THRESHOLD:
             outliers.append({
                 **video,
                 "channel_name": channel_name,
@@ -457,10 +457,12 @@ def main():
         return
     
     print(f"\nTracking {len(channels_config)} competitor channels...")
-    print(f"Looking for videos from the last {LOOKBACK_HOURS} hours")
-    print(f"Outlier threshold: {OUTLIER_THRESHOLD}x channel average")
+    print(f"Looking for videos from the last {LOOKBACK_HOURS} hours ({LOOKBACK_HOURS // 24} days)")
     if TOPIC_KEYWORDS:
         print(f"Topic filter: {', '.join(TOPIC_KEYWORDS[:5])}{'...' if len(TOPIC_KEYWORDS) > 5 else ''}")
+        print("Mode: Capturing ALL matching videos (no threshold)")
+    else:
+        print(f"Outlier threshold: {OUTLIER_THRESHOLD}x channel average")
     print()
     
     # Initialize YouTube client
